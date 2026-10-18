@@ -1,0 +1,50 @@
+# Python virtual environments
+.venv/
+venv/
+ENV/
+
+# Python cache & compiled files
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Node dependencies and build output
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+
+# Large data files, databases and exports
+*.duckdb
+*.duckdb.*
+*.duckdb-*
+*.wal
+*.db
+*.sqlite
+*.sqlite3
+*.csv
+*.parquet
+*.xlsx
+*.bak
+
+# Logs
+*.log
+logs/
+
+# Temporary and AI / Tool files
+graphify-out/
+.graphify_detect.json
+.graphify_cached.json
+.graphify_uncached.txt
+scratch/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+*.tmp
