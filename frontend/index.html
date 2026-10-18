@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data App Core Template</title>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 font-sans antialiased overflow-hidden select-none"
+      x-data="dashboard()"
+      @resize.window="onTabChanged()">
+
+  <div class="flex flex-col h-full overflow-hidden">
+
+    <!-- ==================== HEADER EN 3 FILAS ==================== -->
+    <header class="bg-white dark:bg-slate-850 border-b border-slate-200 dark:border-slate-800 shrink-0">
+
+      <!-- Fila 1: Branding y Acciones Globales (h-14 / 56px) -->
+      <div class="flex items-center justify-between px-6 h-14">
+        <!-- Brand / Logo / Titulo -->
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center text-white font-black text-xs shadow-xs tracking-tighter">
+            DA
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h1 class="font-bold text-sm tracking-tight text-slate-900 dark:text-white" x-text="appName"></h1>
+              <span class="text-[10px] text-slate-400 font-medium tracking-wide uppercase">· Framework Canónico</span>
+            </div>
+          </div>
+          <span x-show="cargando" class="text-xs text-amber-500 font-medium animate-pulse ml-2">Consultando analítica...</span>
+        </div>
+
+        <!-- Acciones Header: Ciclos Activos + Indicador de Actualizacion + Boton Filtros Globales + Actualizar -->
+        <div class="flex items-center space-x-3">
+          <!-- Indicador / Selector Rápido de Ciclos Activos -->
+          <div x-show="ciclosAbiertos && ciclosAbiertos.length > 0"
+               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-slate-100/80 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs text-xs">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider">Ciclos Activos:</span>
+            <div class="flex items-center gap-1">
+              <template x-for="ca in ciclosAbiertos" :key="'ca_head_' + ca">
+                <button @click="cambiarCiclo(ca)"
+                        :class="filtros.ciclo === ca 
+                                ? 'bg-emerald-600 text-white font-extrabold shadow-xs' 
+                                : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:text-emerald-600 dark:hover:text-emerald-400 font-bold border border-slate-200/70 dark:border-slate-600/70'"
+                        class="px-2 py-0.5 rounded-lg text-xs transition cursor-pointer"
+                        :title="'Ver analítica del ciclo activo ' + ca">
+                  <span x-text="ca"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <!-- Indicador de Ultima Actualizacion ETL -->
+          <div x-show="ultimaActualizacion"
+               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 text-xs font-medium border border-emerald-200 dark:border-emerald-800/60 shadow-2xs"
+               title="Fecha y hora de última actualización del ETL">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Actualizado: <b class="font-semibold text-emerald-900 dark:text-emerald-100" x-text="ultimaActualizacion"></b></span>
+          </div>
+
+          <!-- Boton Refrescar -->
+          <button @click="cargarDatos()" 
+                  class="text-xs px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold transition flex items-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5" :class="cargando ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Refrescar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fila 2: Barra de Filtros Activos (py-2 / ~38px) -->
+      <div class="flex flex-wrap items-center justify-between px-6 py-2 border-t border-slate-100 dark:border-slate-800 text-xs bg-slate-50/70 dark:bg-slate-900/30 gap-3">
+        <div class="flex items-center space-x-2 shrink-0">
+          <span class="text-slate-400 dark:text-slate-500 font-semibold uppercase tracking-wider text-[10px] mr-1">Filtros Activos:</span>
+          
+          <!-- Chip Ciclo -->
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-brand-50 dark:bg-brand-950/40 text-brand-700 dark:text-brand-300 border border-brand-200 dark:border-brand-800/50 font-medium cursor-pointer hover:bg-brand-100 dark:hover:bg-brand-900/50 transition" 
+                @click="isSidebarOpen = true" title="Clic para cambiar ciclo comercial">
+            <span class="text-brand-400 font-normal">Ciclo:</span>
+            <b x-text="filtros.ciclo || '--'"></b>
+          </span>
+
+          <!-- Chip Gerencia -->
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-medium cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-750 transition" 
+                @click="isSidebarOpen = true" title="Clic para cambiar Gerencia de Ventas">
+            <span class="text-slate-400 font-normal">GV:</span>
+            <b x-text="filtros.gv ? filtros.gv : 'Nacional (Todas)'"></b>
+          </span>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <button @click="limpiarFiltros()" 
+                  class="text-[11px] text-slate-500 dark:text-slate-400 hover:underline font-semibold cursor-pointer">
+            Restablecer
+          </button>
+          <button @click="isSidebarOpen = true" 
+                  class="text-[11px] text-brand-600 dark:text-brand-400 hover:underline font-semibold flex items-center gap-1 cursor-pointer">
+            Editar Filtros
+          </button>
+        </div>
+      </div>
+
+      <!-- Fila 3: Navegacion de Paneles / Tabs (py-1.5 / ~36-38px) -->
+      <div class="flex items-center space-x-1.5 px-6 py-1.5 border-t border-slate-100 dark:border-slate-800 text-xs bg-white dark:bg-slate-850">
+        <nav class="flex items-center space-x-1.5">
+          <button @click="cambiarTab('panel_general')"
+                  :class="panelActivo === 'panel_general' 
+                    ? 'bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-bold border border-slate-200/90 dark:border-slate-700 shadow-2xs' 
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium border border-transparent'"
+                  class="flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-all cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+            <span>Visión General</span>
+          </button>
+
+          <button @click="cambiarTab('panel_detalle')"
+                  :class="panelActivo === 'panel_detalle' 
+                    ? 'bg-slate-100 dark:bg-slate-800 text-brand-600 dark:text-brand-400 font-bold border border-slate-200/90 dark:border-slate-700 shadow-2xs' 
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium border border-transparent'"
+                  class="flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-all cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+            <span>Detalle Operativo</span>
+          </button>
+        </nav>
+      </div>
+
+    </header>
+
+    <!-- ==================== SIDEBAR DRAWER (OCULTABLE A LA DERECHA) ==================== -->
+    <div x-show="isSidebarOpen" 
+         style="display: none;"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40" 
+         @click="isSidebarOpen = false"></div>
+
+    <aside x-show="isSidebarOpen" 
+           style="display: none;"
+           x-transition:enter="transition ease-out duration-300 transform"
+           x-transition:enter-start="translate-x-full"
+           x-transition:enter-end="translate-x-0"
+           x-transition:leave="transition ease-in duration-200 transform"
+           x-transition:leave-start="translate-x-0"
+           x-transition:leave-end="translate-x-full"
+           class="fixed right-0 top-0 h-full w-84 bg-white dark:bg-slate-850 shadow-2xl z-50 overflow-y-auto flex flex-col justify-between border-l border-slate-200 dark:border-slate-800">
+      
+      <div class="p-6 space-y-6">
+        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-lg bg-brand-600 flex items-center justify-center text-white font-black text-xs shadow-xs">DA</div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900 dark:text-white">Filtros Comerciales</h3>
+              <span class="text-[10px] text-slate-400 font-medium uppercase">Configuración Global</span>
+            </div>
+          </div>
+          <button @click="isSidebarOpen = false" 
+                  class="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  title="Cerrar filtros">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Ciclo Comercial</label>
+            <select x-model.number="filtros.ciclo" @change="cargarDatos()"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 outline-none">
+              <template x-for="c in ciclosDisponibles" :key="'filtro_ciclo_' + c">
+                <option :value="c" x-text="c"></option>
+              </template>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Gerencia de Ventas (GV)</label>
+            <select x-model="filtros.gv" @change="cargarDatos()"
+                    class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-medium text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 outline-none">
+              <option value="">Nacional (Todas las Gerencias)</option>
+              <template x-for="g in gerenciasDisponibles" :key="'filtro_gv_' + g">
+                <option :value="g" x-text="g"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <button @click="isSidebarOpen = false; cargarDatos()" 
+                  class="w-full py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg transition shadow-xs flex items-center justify-center space-x-1.5 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <span>Aplicar y Cerrar</span>
+          </button>
+
+          <button @click="limpiarFiltros()" 
+                  class="w-full py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium rounded-lg transition flex items-center justify-center cursor-pointer">
+            Restablecer a Valores Predeterminados
+          </button>
+        </div>
+
+        <div x-show="ultimaActualizacion" class="p-3 bg-emerald-50/60 dark:bg-emerald-950/30 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] space-y-1">
+          <div class="font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Última Actualización ETL</span>
+          </div>
+          <div class="font-mono text-emerald-900 dark:text-emerald-100 text-xs font-bold" x-text="ultimaActualizacion"></div>
+          <div class="text-[10px] text-emerald-600 dark:text-emerald-400">Datos sincronizados en DuckDB</div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-200 dark:border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
+        <span>DuckDB + Polars Core</span>
+        <span class="font-mono text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">v2.0</span>
+      </div>
+    </aside>
+
+    <!-- ==================== CONTENEDOR PRINCIPAL ==================== -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+
+      <!-- Espacio de Paneles con Scrollbar -->
+      <section class="flex-1 overflow-y-auto p-6 custom-scrollbar space-y-6">
+
+        <!-- =================================================================== -->
+        <!-- PANEL: VISION GENERAL                                               -->
+        <!-- =================================================================== -->
+        <template x-if="panelActivo === 'panel_general'">
+          <div class="space-y-6">
+            
+            <!-- FILA 1: WIDGETS DE KPIS (CARDS INDEPENDIENTES) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+              
+              <!-- WIDGET CARD: Consultoras Activas -->
+              <div class="bg-white dark:bg-slate-850 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Consultoras Activas</span>
+                    <!-- Detonador de explicacion modal -->
+                    <button @click="abrirModalWidget('total_consultoras')" 
+                            class="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600 flex items-center justify-center text-xs text-slate-400 hover:text-brand-500 hover:border-brand-500 transition"
+                            title="Ver definición y fórmula">
+                      i
+                    </button>
+                  </div>
+                  <div class="mt-3 text-2xl font-extrabold text-slate-900 dark:text-white" x-text="kpis.total_consultoras.toLocaleString()"></div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Con al menos 1 pedido en el ciclo</p>
+              </div>
+
+              <!-- WIDGET CARD: Venta Total -->
+              <div class="bg-white dark:bg-slate-850 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Venta Total</span>
+                    <button @click="abrirModalWidget('venta_total')" 
+                            class="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600 flex items-center justify-center text-xs text-slate-400 hover:text-brand-500 hover:border-brand-500 transition"
+                            title="Ver definición y fórmula">
+                      i
+                    </button>
+                  </div>
+                  <div class="mt-3 text-2xl font-extrabold text-slate-900 dark:text-white" 
+                       x-text="'$' + (kpis.venta_total || 0).toLocaleString(undefined, {minimumFractionDigits: 2})"></div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Facturación neta acumulada</p>
+              </div>
+
+              <!-- WIDGET CARD: Ticket Promedio -->
+              <div class="bg-white dark:bg-slate-850 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm relative flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ticket Promedio</span>
+                    <button @click="abrirModalWidget('ticket_promedio')" 
+                            class="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-600 flex items-center justify-center text-xs text-slate-400 hover:text-brand-500 hover:border-brand-500 transition"
+                            title="Ver definición y fórmula">
+                      i
+                    </button>
+                  </div>
+                  <div class="mt-3 text-2xl font-extrabold text-slate-900 dark:text-white" 
+                       x-text="'$' + (kpis.ticket_promedio || 0).toFixed(2)"></div>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-2">Promedio por pedido facturado</p>
+              </div>
+
+            </div>
+
+            <!-- FILA 2: WIDGET COMPLEJO CON TABS Y EXPORTACION PNG -->
+            <!-- CARD BASE DEL WIDGET -->
+            <div x-data="{ tabWidget: 'tab_diagrama' }" 
+                 class="bg-white dark:bg-slate-850 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-5 space-y-4">
+              
+              <!-- HEADER DEL WIDGET -->
+              <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+                
+                <!-- Titulo del Widget + Subtitulo + Detonador de explicacion modal [i] -->
+                <div class="flex items-start space-x-2.5">
+                  <div>
+                    <div class="flex items-center space-x-2">
+                      <h3 class="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+                        Tendencia Histórica de Facturación por Ciclo
+                      </h3>
+                      <!-- Detonador de Explicación -->
+                      <button @click="abrirModalWidget('tendencia_ciclos')"
+                              class="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-slate-400 hover:text-brand-500 hover:border-brand-500 transition"
+                              title="Ver explicación y regla de negocio">
+                        i
+                      </button>
+                    </div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      Evolución temporal del monto facturado y consultoras activas ciclo a ciclo
+                    </p>
+                  </div>
+                </div>
+
+                <!-- CONTROLES DEL WIDGET: TABS INTERNOS + BOTON DESCARGAR PNG -->
+                <div class="flex items-center space-x-2 shrink-0">
+                  
+                  <!-- TABS DEL WIDGET: Alternan perspectivas del tema central (Diagrama vs Matriz) -->
+                  <div class="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
+                    <button @click="tabWidget = 'tab_diagrama'; onTabChanged()"
+                            :class="tabWidget === 'tab_diagrama' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-xs' : 'text-slate-500 hover:text-slate-700'"
+                            class="px-3 py-1.5 rounded-md transition">
+                      Diagrama
+                    </button>
+                    <button @click="tabWidget = 'tab_matriz'; onTabChanged()"
+                            :class="tabWidget === 'tab_matriz' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-xs' : 'text-slate-500 hover:text-slate-700'"
+                            class="px-3 py-1.5 rounded-md transition">
+                      Matriz Histórica
+                    </button>
+                  </div>
+
+                  <!-- BOTON DESCARGAR WIDGET EN PNG -->
+                  <button @click="descargarWidget('chart-tendencia', 'Tendencia Histórica de Facturación por Ciclo', 'Evolución temporal de facturación')"
+                          class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition"
+                          title="Descargar este widget en imagen PNG con título, marca y filtros">
+                    <!-- Icono de descarga / imagen -->
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                  </button>
+
+                </div>
+              </div>
+
+              <!-- CUERPO DEL WIDGET SEGUN EL TAB ACTIVO -->
+              <div>
+                
+                <!-- TAB 1: DIAGRAMA (GRAFICO ECHARTS) -->
+                <div x-show="tabWidget === 'tab_diagrama'" class="w-full">
+                  <div id="chart-tendencia" class="w-full h-80"></div>
+                </div>
+
+                <!-- TAB 2: MATRIZ HISTORICA (TABLA DE DATOS) -->
+                <div x-show="tabWidget === 'tab_matriz'" class="w-full overflow-x-auto custom-scrollbar">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                        <th class="py-2.5 px-3">Ciclo Comercial</th>
+                        <th class="py-2.5 px-3 text-right">Consultoras Activas</th>
+                        <th class="py-2.5 px-3 text-right">Monto Facturado</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                      <template x-for="row in tendenciaData" :key="row.ciclo">
+                        <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
+                          <td class="py-2 px-3 text-slate-900 dark:text-white" x-text="row.ciclo"></td>
+                          <td class="py-2 px-3 text-right text-slate-600 dark:text-slate-300" x-text="row.activas.toLocaleString()"></td>
+                          <td class="py-2 px-3 text-right font-bold text-slate-900 dark:text-white" x-text="'$' + row.venta.toLocaleString(undefined, {minimumFractionDigits: 2})"></td>
+                        </tr>
+                      </template>
+                      <template x-if="!tendenciaData.length">
+                        <tr>
+                          <td colspan="3" class="py-6 text-center text-slate-400 italic">No hay registros disponibles para los filtros seleccionados.</td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        </template>
+
+        <!-- =================================================================== -->
+        <!-- PANEL: GESTION DE METAS (CRUD TRANSACCIONAL CON SQLITE WAL)         -->
+        <!-- =================================================================== -->
+        <template x-if="panelActivo === 'panel_detalle'">
+          <div class="space-y-6">
+
+            <!-- WIDGET CRUD: GESTION DE METAS OPERATIVAS -->
+            <div x-data="{ tabWidget: 'tab_lista' }" class="bg-white dark:bg-slate-850 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm p-5 space-y-4">
+              
+              <!-- Header del Widget CRUD -->
+              <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white tracking-tight">Parametrización y Metas Comerciales</h3>
+                    <button @click="abrirModalWidget('metas_crud')" 
+                            class="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 flex items-center justify-center text-[10px] text-slate-400 hover:text-brand-500 hover:border-brand-500 transition"
+                            title="Ver información del módulo CRUD">
+                      i
+                    </button>
+                  </div>
+                  <p class="text-xs text-slate-500 mt-0.5">Gestión transaccional en SQLite (Modo WAL con Timeout) para asignación de objetivos por ciclo y gerencia.</p>
+                </div>
+
+                <!-- Tabs del Widget: Lista vs Registrar Meta -->
+                <div class="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg text-xs">
+                  <button @click="tabWidget = 'tab_lista'"
+                          :class="tabWidget === 'tab_lista' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-xs' : 'text-slate-500 hover:text-slate-700'"
+                          class="px-3 py-1.5 rounded-md transition">
+                    Ver Metas Asignadas
+                  </button>
+                  <button @click="tabWidget = 'tab_nuevo'"
+                          :class="tabWidget === 'tab_nuevo' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white font-semibold shadow-xs' : 'text-slate-500 hover:text-slate-700'"
+                          class="px-3 py-1.5 rounded-md transition">
+                    + Registrar / Editar Meta
+                  </button>
+                </div>
+              </div>
+
+              <!-- CUERPO DEL WIDGET CRUD -->
+              <div>
+                
+                <!-- TAB 1: LISTADO DE METAS (SELECT / DELETE) -->
+                <div x-show="tabWidget === 'tab_lista'" class="w-full overflow-x-auto custom-scrollbar">
+                  <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr class="border-b border-slate-200 dark:border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
+                        <th class="py-2.5 px-3">Ciclo</th>
+                        <th class="py-2.5 px-3">Gerencia</th>
+                        <th class="py-2.5 px-3 text-right">Meta Facturación</th>
+                        <th class="py-2.5 px-3 text-right">Meta Consultoras</th>
+                        <th class="py-2.5 px-3">Observaciones</th>
+                        <th class="py-2.5 px-3 text-center">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                      <template x-for="meta in metasLista" :key="meta.id">
+                        <tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition">
+                          <td class="py-2.5 px-3 font-bold text-slate-900 dark:text-white" x-text="meta.ciclo"></td>
+                          <td class="py-2.5 px-3 text-brand-600 dark:text-brand-400 font-semibold" x-text="meta.gerencia"></td>
+                          <td class="py-2.5 px-3 text-right font-semibold text-slate-900 dark:text-white" x-text="'$' + meta.meta_monto.toLocaleString(undefined, {minimumFractionDigits: 2})"></td>
+                          <td class="py-2.5 px-3 text-right text-slate-600 dark:text-slate-300" x-text="meta.meta_consultoras.toLocaleString()"></td>
+                          <td class="py-2.5 px-3 text-slate-500 max-w-xs truncate" x-text="meta.observaciones || '-'"></td>
+                          <td class="py-2.5 px-3 text-center">
+                            <button @click="eliminarMeta(meta.id)" 
+                                    class="text-rose-500 hover:text-rose-700 text-xs px-2 py-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40 transition">
+                              Eliminar
+                            </button>
+                          </td>
+                        </tr>
+                      </template>
+                      <template x-if="!metasLista.length">
+                        <tr>
+                          <td colspan="6" class="py-8 text-center text-slate-400 italic">No hay metas registradas en SQLite. Utilice la pestaña '+ Registrar / Editar Meta'.</td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- TAB 2: FORMULARIO DE REGISTRO (INSERT / UPDATE) -->
+                <div x-show="tabWidget === 'tab_nuevo'" class="max-w-xl mx-auto py-2">
+                  <form @submit.prevent="guardarMeta(); tabWidget = 'tab_lista'" class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Ciclo Comercial (YYYYCC)</label>
+                        <select x-model="formularioMeta.ciclo" required
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+                          <option value="202601">202601</option>
+                          <option value="202602">202602</option>
+                          <option value="202603">202603</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Gerencia de Ventas (GV)</label>
+                        <select x-model="formularioMeta.gerencia" required
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none">
+                          <option value="GV_NORTE">GV_NORTE</option>
+                          <option value="GV_SUR">GV_SUR</option>
+                          <option value="GV_CENTRO">GV_CENTRO</option>
+                          <option value="GV_OCCIDENTE">GV_OCCIDENTE</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Meta de Venta Neta ($)</label>
+                        <input type="number" step="0.01" min="0" x-model="formularioMeta.meta_monto" required
+                               class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none" />
+                      </div>
+
+                      <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Meta Consultoras Activas</label>
+                        <input type="number" min="0" x-model="formularioMeta.meta_consultoras" required
+                               class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label class="block text-xs font-semibold text-slate-500 mb-1">Observaciones / Justificación</label>
+                      <textarea x-model="formularioMeta.observaciones" rows="2" placeholder="Comentarios sobre la parametrización de esta meta..."
+                                class="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg p-2 text-xs focus:ring-2 focus:ring-brand-500 outline-none"></textarea>
+                    </div>
+
+                    <div class="flex justify-end space-x-2 pt-2">
+                      <button type="button" @click="tabWidget = 'tab_lista'"
+                              class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium hover:bg-slate-200 transition">
+                        Cancelar
+                      </button>
+                      <button type="submit" :disabled="guardandoMeta"
+                              class="px-5 py-2 rounded-lg bg-brand-500 hover:bg-brand-600 text-white text-xs font-semibold shadow-sm transition disabled:opacity-50">
+                        <span x-text="guardandoMeta ? 'Guardando en SQLite...' : 'Guardar Meta'"></span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+              </div>
+
+            </div>
+
+          </div>
+        </template>
+
+      </section>
+    </main>
+
+  </div>
+
+  <!-- ==================== MODAL DE EXPLICACION DE WIDGET ==================== -->
+  <div x-show="modalExplicacion.abierto" 
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4"
+       @keydown.escape.window="cerrarModalWidget()">
+    
+    <div @click.away="cerrarModalWidget()"
+         class="bg-white dark:bg-slate-850 w-full max-w-lg rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-slate-900 dark:text-white" x-text="modalExplicacion.titulo"></h3>
+        <button @click="cerrarModalWidget()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg leading-none">&times;</button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="space-y-3.5 text-xs">
+        <div>
+          <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Definición de Negocio</span>
+          <p class="text-slate-700 dark:text-slate-300 mt-1 leading-relaxed" x-text="modalExplicacion.descripcion"></p>
+        </div>
+
+        <div>
+          <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fórmula / Cálculo</span>
+          <code class="block mt-1 p-2 bg-slate-100 dark:bg-slate-900 rounded-md font-mono text-[11px] text-brand-500 border border-slate-200 dark:border-slate-800" 
+                x-text="modalExplicacion.formula"></code>
+        </div>
+
+        <div>
+          <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Regla de Negocio Específica</span>
+          <p class="text-slate-700 dark:text-slate-300 mt-1 leading-relaxed" x-text="modalExplicacion.regla_negocio"></p>
+        </div>
+
+        <div>
+          <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fuente de Información Primaria</span>
+          <p class="text-slate-600 dark:text-slate-300 mt-0.5 font-mono text-[11px] font-semibold" 
+             x-text="modalExplicacion.fuente_origen || modalExplicacion.fuente"></p>
+          <template x-if="modalExplicacion.archivo_sql_origen">
+            <span class="text-[10px] text-slate-400 font-mono block mt-0.5">Archivo Extracción: <span class="text-brand-500" x-text="modalExplicacion.archivo_sql_origen"></span></span>
+          </template>
+        </div>
+
+        <template x-if="modalExplicacion.consulta_analitica_sql">
+          <div>
+            <span class="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Consulta SQL Asociada (Analítica)</span>
+            <code class="block mt-1 p-2 bg-slate-100 dark:bg-slate-900 rounded-md font-mono text-[10px] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800 break-words whitespace-pre-wrap" 
+                  x-text="modalExplicacion.consulta_analitica_sql"></code>
+          </div>
+        </template>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="pt-2 flex justify-end">
+        <button @click="cerrarModalWidget()" 
+                class="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold rounded-lg transition text-slate-700 dark:text-slate-300">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
