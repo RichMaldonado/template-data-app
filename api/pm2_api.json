@@ -1,0 +1,14 @@
+{
+  "apps": [
+    {
+      "name": "data_app_api",
+      "script": "uvicorn",
+      "args": "api.main:app --host 0.0.0.0 --port 8000",
+      "interpreter": "none",
+      "cwd": "./",
+      "autorestart": true,
+      "watch": false,
+      "max_memory_restart": "500M"
+    }
+  ]
+}

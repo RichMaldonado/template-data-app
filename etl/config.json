@@ -1,0 +1,13 @@
+{
+  "source": {
+    "type": "mock_or_databricks",
+    "notes": "Configurar credenciales de origen segun aplique"
+  },
+  "database": {
+    "path": "etl/database/analitica.duckdb"
+  },
+  "commercial": {
+    "current_year": 2026,
+    "active_cycles": [202601, 202602]
+  }
+}

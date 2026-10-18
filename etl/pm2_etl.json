@@ -1,0 +1,13 @@
+{
+  "apps": [
+    {
+      "name": "data_app_etl",
+      "script": "etl/run_etl.py",
+      "interpreter": "python",
+      "cwd": "./",
+      "autorestart": false,
+      "cron_restart": "0 */4 * * *",
+      "watch": false
+    }
+  ]
+}
