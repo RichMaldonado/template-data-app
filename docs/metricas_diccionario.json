@@ -1,0 +1,52 @@
+{
+  "total_consultoras": {
+    "titulo": "Total Consultoras Activas",
+    "descripcion": "Recuento de consultoras unicas que realizaron al menos un pedido durante el ciclo comercial evaluado.",
+    "fuente_origen": "Databricks: platform.dw_o01dw_sisdmi_replica.t_prj_2go_f_pedido",
+    "archivo_sql_origen": "etl/consultas/extraccion_ventas.sql",
+    "tabla_destino": "DuckDB: fact_ventas",
+    "consulta_analitica_sql": "SELECT COUNT(DISTINCT codigo_consultora) FROM fact_ventas WHERE ciclo = :ciclo",
+    "formula": "COUNT(DISTINCT codigo_consultora)",
+    "regla_negocio": "Solo se consideran consultoras del ciclo activo sin duplicidad."
+  },
+  "venta_total": {
+    "titulo": "Monto Total Facturado",
+    "descripcion": "Suma del importe neto facturado durante la ventana de tiempo del ciclo.",
+    "fuente_origen": "Databricks: platform.dw_o01dw_sisdmi_replica.t_prj_2go_f_pedido",
+    "archivo_sql_origen": "etl/consultas/extraccion_ventas.sql",
+    "tabla_destino": "DuckDB: fact_ventas",
+    "consulta_analitica_sql": "SELECT SUM(monto_facturado) FROM fact_ventas WHERE ciclo = :ciclo",
+    "formula": "SUM(monto_facturado)",
+    "regla_negocio": "Incluye ventas procesadas en moneda nacional."
+  },
+  "ticket_promedio": {
+    "titulo": "Ticket Promedio por Consultora",
+    "descripcion": "Monto promedio facturado por cada pedido realizado.",
+    "fuente_origen": "Databricks: platform.dw_o01dw_sisdmi_replica.t_prj_2go_f_pedido",
+    "archivo_sql_origen": "etl/consultas/extraccion_ventas.sql",
+    "tabla_destino": "DuckDB: fact_ventas",
+    "consulta_analitica_sql": "SELECT AVG(monto_facturado) FROM fact_ventas WHERE ciclo = :ciclo",
+    "formula": "AVG(monto_facturado)",
+    "regla_negocio": "Calculado a nivel transaccion."
+  },
+  "tendencia_ciclos": {
+    "titulo": "Tendencia Historica de Facturacion",
+    "descripcion": "Evolucion temporal de ventas y consultoras a traves de los ciclos comerciales.",
+    "fuente_origen": "Databricks: platform.dw_o01dw_sisdmi_replica.t_prj_2go_f_pedido",
+    "archivo_sql_origen": "etl/consultas/extraccion_ventas.sql",
+    "tabla_destino": "DuckDB: fact_ventas",
+    "consulta_analitica_sql": "SELECT ciclo, SUM(monto_facturado) AS venta, COUNT(DISTINCT codigo_consultora) AS activas FROM fact_ventas GROUP BY ciclo ORDER BY ciclo ASC",
+    "formula": "Agrupacion por ciclo comercial (YYYYCC)",
+    "regla_negocio": "Eje temporal ordenado cronologicamente."
+  },
+  "metas_crud": {
+    "titulo": "Parametrización de Metas Comerciales (CRUD)",
+    "descripcion": "Módulo transaccional de captura y edición de objetivos comerciales por ciclo y gerencia.",
+    "fuente_origen": "SQLite: data/transaccional.db",
+    "archivo_sql_origen": "api/crud_metas.py",
+    "tabla_destino": "SQLite: metas_gerencia (Modo WAL)",
+    "consulta_analitica_sql": "SELECT id, ciclo, gerencia, meta_pedidos, meta_facturacion FROM metas_gerencia WHERE ciclo = :ciclo",
+    "formula": "INSERT / UPDATE ON CONFLICT(ciclo, gerencia)",
+    "regla_negocio": "Garantiza concurrencia con timeout de 30 segundos e integridad referencial."
+  }
+}
